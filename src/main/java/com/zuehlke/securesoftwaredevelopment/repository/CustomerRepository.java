@@ -1,6 +1,7 @@
 package com.zuehlke.securesoftwaredevelopment.repository;
 
 import com.zuehlke.securesoftwaredevelopment.config.AuditLogger;
+import com.zuehlke.securesoftwaredevelopment.config.Entity;
 import com.zuehlke.securesoftwaredevelopment.domain.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +45,7 @@ public class CustomerRepository {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - getCustomers()", e.getMessage());
         }
         return customers;
     }
@@ -65,7 +66,7 @@ public class CustomerRepository {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - getRestaurants()", e.getMessage());
         }
         return restaurants;
     }
@@ -81,17 +82,18 @@ public class CustomerRepository {
 
 
     public Object getRestaurant(String id) {
-        String query = "SELECT r.id, r.name, r.address, rt.name  FROM restaurant AS r JOIN restaurant_type AS rt ON r.typeId = rt.id WHERE r.id=" + id;
+        String query = "SELECT r.id, r.name, r.address, rt.name  FROM restaurant AS r JOIN restaurant_type AS rt ON r.typeId = rt.id WHERE r.id=?" ;
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(query)) {
+             PreparedStatement statement = connection.prepareStatement(query);) {
 
+            statement.setString(1, id);
+            ResultSet rs = statement.executeQuery();
             if (rs.next()) {
                 return createRestaurant(rs);
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java -  getRestaurant(String id)", e.getMessage());
         }
         return null;
     }
@@ -102,35 +104,54 @@ public class CustomerRepository {
              Statement statement = connection.createStatement()
         ) {
             statement.executeUpdate(query);
+            auditLogger.audit("Restaurant delete id = " + id);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - deleteRestaurant(int id)", e.getMessage());
         }
     }
 
     public void updateRestaurant(RestaurantUpdate restaurantUpdate) {
-        String query = "UPDATE restaurant SET name = '" + restaurantUpdate.getName() + "', address='" + restaurantUpdate.getAddress() + "', typeId =" + restaurantUpdate.getRestaurantType() + " WHERE id =" + restaurantUpdate.getId();
+        Restaurant restaurant = (Restaurant) getRestaurant(String.valueOf(restaurantUpdate.getId()));
+        String query = "UPDATE restaurant SET name = ?, address= ?, typeId = ? WHERE id = ?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()
-        ) {
-            statement.executeUpdate(query);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+             PreparedStatement statement = connection.prepareStatement(query)) {
 
+            statement.setString(1, restaurantUpdate.getName());
+            statement.setString(2, restaurantUpdate.getAddress());
+            statement.setInt(3, restaurantUpdate.getRestaurantType());
+            statement.setInt(4, restaurantUpdate.getId());
+            statement.executeUpdate();
+
+            String previous = "Name: " + restaurant.getName() + "Address: " + restaurant.getAddress() + "Restaurant type: "
+                    + restaurant.getRestaurantType();
+
+            String current = "Name: " + restaurantUpdate.getName() + "Address: " + restaurantUpdate.getAddress() + "Restaurant type: "
+                    + restaurantUpdate.getRestaurantType();
+
+            auditLogger.auditChange(new Entity(
+                    "restaurant.update",
+                    String.valueOf(restaurant.getId()),
+                    previous,
+                    current
+            ));
+        } catch (SQLException e) {
+            LOG.warn("SQLException in CustomerRepository.java - updateRestaurant(RestaurantUpdate restaurantUpdate)", e.getMessage());
+        }
     }
 
     public Customer getCustomer(String id) {
-        String sqlQuery = "SELECT id, username, password FROM users WHERE id=" + id;
+        String sqlQuery = "SELECT id, username, password FROM users WHERE id=?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sqlQuery)) {
+             PreparedStatement statement = connection.prepareStatement(sqlQuery);) {
 
+            statement.setString(1, id);
+            ResultSet rs = statement.executeQuery();
             if (rs.next()) {
                 return createCustomerWithPassword(rs);
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - getCustomer(String id)", e.getMessage());
         }
         return null;
     }
@@ -144,40 +165,57 @@ public class CustomerRepository {
 
 
     public void deleteCustomer(String id) {
-        String query = "DELETE FROM users WHERE id=" + id;
+        String query = "DELETE FROM users WHERE id=?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()
-        ) {
-            statement.executeUpdate(query);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, id);
+            statement.executeUpdate();
+            auditLogger.audit("Customer delete id = " + id);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - deleteCustomer(String id)", e.getMessage());
         }
     }
 
     public void updateCustomer(CustomerUpdate customerUpdate) {
-        String query = "UPDATE users SET username = '" + customerUpdate.getUsername() + "', password='" + customerUpdate.getPassword() + "' WHERE id =" + customerUpdate.getId();
+        Customer customer = (Customer)getCustomer(String.valueOf(customerUpdate.getId()));
+        String query = "UPDATE users SET username = ?, password=? WHERE id = ?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()
-        ) {
-            statement.executeUpdate(query);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, customerUpdate.getUsername());
+            statement.setString(2, customerUpdate.getPassword());
+            statement.setInt(3, customerUpdate.getId());
+            statement.executeUpdate();
+
+            String previous = "Username: " + customer.getUsername() + "Password: " + customer.getPassword();
+            String current = "Username: " + customerUpdate.getUsername() + "Password: " + customerUpdate.getPassword();
+
+            auditLogger.auditChange(new Entity(
+                    "customer.update",
+                    String.valueOf(customerUpdate.getId()),
+                    previous,
+                    current
+            ));
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - updateCustomer(CustomerUpdate customerUpdate)", e.getMessage());
         }
     }
 
     public List<Address> getAddresses(String id) {
-        String sqlQuery = "SELECT id, name FROM address WHERE userId=" + id;
+        String sqlQuery = "SELECT id, name FROM address WHERE userId=?";
         List<Address> addresses = new ArrayList<Address>();
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sqlQuery)) {
+             PreparedStatement statement = connection.prepareStatement(sqlQuery);) {
 
+            statement.setString(1, id);
+            ResultSet rs = statement.executeQuery();
             while (rs.next()) {
                 addresses.add(createAddress(rs));
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - getAddresses(String id)", e.getMessage());
         }
         return addresses;
     }
@@ -194,30 +232,36 @@ public class CustomerRepository {
              Statement statement = connection.createStatement()
         ) {
             statement.executeUpdate(query);
+            auditLogger.audit("Customer address delete id = " + id);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - deleteCustomerAddress(int id)", e.getMessage());
         }
     }
 
     public void updateCustomerAddress(Address address) {
-        String query = "UPDATE address SET name = '" + address.getName() + "' WHERE id =" + address.getId();
+        String query = "UPDATE address SET name = ? WHERE id = ?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()
-        ) {
-            statement.executeUpdate(query);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, address.getName());
+            statement.setInt(2, address.getId());
+            statement.executeUpdate();
+            auditLogger.audit("Customer address update id = " + address.getId());
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - updateCustomerAddress(Address address)", e.getMessage());
         }
     }
 
     public void putCustomerAddress(NewAddress newAddress) {
-        String query = "INSERT INTO address (name, userId) VALUES ('"+newAddress.getName()+"' , "+newAddress.getUserId()+")";
+        String query = "INSERT INTO address (name, userId) VALUES (? , ?)";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()
-        ) {
-            statement.executeUpdate(query);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, newAddress.getName());
+            statement.setInt(2, newAddress.getUserId());
+            statement.executeUpdate();
+            auditLogger.audit("Customer address insert id = " + newAddress.getUserId());
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in CustomerRepository.java - putCustomerAddress(NewAddress newAddress)", e.getMessage());
         }
     }
 }

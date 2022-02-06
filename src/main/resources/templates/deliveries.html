@@ -9,7 +9,7 @@
     <title>Deliveries</title>
     <script>
         function search() {
-            clearSearchResults();
+            clearSearchResults();0
             const searchQuery = getSearchQuery();
             updateSearchTerm(searchQuery);
             fetch(`/api/deliveries/search?query=${searchQuery}`)
@@ -30,7 +30,7 @@
 
         function updateSearchTerm(searchQuery) {
             const searchTerm = document.getElementById('searchTerm');
-            searchTerm.innerHTML = searchQuery;
+            searchTerm.textContent = searchQuery;
             searchTerm.parentElement.classList.remove('invisible');
         }
 

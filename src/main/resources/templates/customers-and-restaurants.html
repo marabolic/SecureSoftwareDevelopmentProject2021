@@ -12,7 +12,7 @@
 <body>
 <div layout:fragment="content">
     <h1>Restaurants</h1>
-    <table class="table">
+    <table class="table" sec:authorize="hasAuthority('RESTAURANT_LIST_VIEW')">
         <thead>
         <tr>
             <th scope="col">#</th>
@@ -28,12 +28,12 @@
             <td th:text="${restaurant.name}? 'Delivered' : 'Not delivered'"></td>
             <td th:text="${restaurant.address}"></td>
             <td th:text="${restaurant.restaurantType}"></td>
-            <td><a th:href="@{/restaurant(id=${restaurant.id})}">Details</a></td>
+            <td><a th:href="@{/restaurant(id=${restaurant.id})}" sec:authorize="hasAuthority('RESTAURANT_DETAILS_VIEW')">Details</a></td>
         </tr>
         </tbody>
     </table>
-    <h1>Customers</h1>
-    <table class="table">
+    <h1 sec:authorize="hasAuthority('USERS_LIST_VIEW')">Customers</h1>
+    <table class="table" sec:authorize="hasAuthority('USERS_LIST_VIEW')">
         <thead>
         <tr>
             <th scope="col">#</th>
@@ -45,7 +45,7 @@
         <tr th:each="customer: ${customers}">
             <td th:text="${customer.id}"></td>
             <td th:text="${customer.username}"></td>
-            <td><a th:href="@{/customer(id=${customer.id})}">Details</a></td>
+            <td><a th:href="@{/customer(id=${customer.id})}" sec:authorize="hasAuthority('USERS_DETAILS_VIEW')">Details</a></td>
         </tr>
         </tbody>
     </table>

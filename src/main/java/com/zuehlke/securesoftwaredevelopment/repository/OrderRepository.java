@@ -1,13 +1,13 @@
 package com.zuehlke.securesoftwaredevelopment.repository;
 
+import com.zuehlke.securesoftwaredevelopment.config.AuditLogger;
 import com.zuehlke.securesoftwaredevelopment.domain.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,8 @@ import java.util.List;
 public class OrderRepository {
 
     private DataSource dataSource;
-
+    private static final Logger LOG = LoggerFactory.getLogger(OrderRepository.class);
+    private static final AuditLogger auditLogger = AuditLogger.getAuditLogger(OrderRepository.class);
     public OrderRepository(DataSource dataSource) {
         this.dataSource = dataSource;
     }
@@ -33,7 +34,7 @@ public class OrderRepository {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in OrderRepository.java - getMenu(int id)", e.getMessage());
         }
 
         return menu;
@@ -48,21 +49,25 @@ public class OrderRepository {
     public void insertNewOrder(NewOrder newOrder, int userId) {
         LocalDate date = LocalDate.now();
         String sqlQuery = "INSERT INTO delivery (isDone, userId, restaurantId, addressId, date, comment)" +
-                "values (FALSE, " + userId + ", " + newOrder.getRestaurantId() + ", " + newOrder.getAddress() + "," +
-                "'" + date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth() + "', '" + newOrder.getComment() + "')";
-        try {
-            Connection connection = dataSource.getConnection();
-            Statement statement = connection.createStatement();
-            statement.executeUpdate(sqlQuery);
+                "values (FALSE, ?, ?, ?, '" + date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth() + "', ? )";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sqlQuery);) {
 
-            sqlQuery = "SELECT MAX(id) FROM delivery";
-            ResultSet rs = statement.executeQuery(sqlQuery);
+            preparedStatement.setInt(1, userId);
+            preparedStatement.setInt(2, newOrder.getRestaurantId());
+            preparedStatement.setInt(3, newOrder.getAddress());
+            preparedStatement.setString(4, newOrder.getComment());
+            preparedStatement.executeUpdate();
+
+            Statement statement = connection.createStatement();
+            auditLogger.audit("Delivery insert id = " + newOrder.getRestaurantId());
+            String query = "SELECT MAX(id) FROM delivery";
+            ResultSet rs = statement.executeQuery(query);
 
             if (rs.next()) {
 
                 int deliveryId = rs.getInt(1);
-                sqlQuery = "INSERT INTO delivery_item (amount, foodId, deliveryId)" +
-                        "values";
+                sqlQuery = "INSERT INTO delivery_item (amount, foodId, deliveryId) values";
                 for (int i = 0; i < newOrder.getItems().length; i++) {
                     FoodItem item = newOrder.getItems()[i];
                     String deliveryItem = "";
@@ -72,12 +77,12 @@ public class OrderRepository {
                     deliveryItem += "(" + item.getAmount() + ", " + item.getFoodId() + ", " + deliveryId + ")";
                     sqlQuery += deliveryItem;
                 }
-                System.out.println(sqlQuery);
                 statement.executeUpdate(sqlQuery);
+                auditLogger.audit("Delivery items insert");
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in OrderRepository.java - insertNewOrder(NewOrder newOrder, int userId)", e.getMessage());
         }
 
 
@@ -94,7 +99,7 @@ public class OrderRepository {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in OrderRepository.java - getAddresses(int userId)", e.getMessage());
         }
         return addresses;
     }

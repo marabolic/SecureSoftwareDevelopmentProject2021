@@ -17,19 +17,43 @@ values (1, 'Gotham City, Bat cave', 1 ),
        (6, 'Batajnica, Srpskih vladara 25', 3);
 
 insert into roles(id, name)
-values (1, 'CUSTOMER');
+values (1, 'CUSTOMER'),
+       (2, 'RESTAURANT'),
+       (3, 'ADMIN');
 
 insert into user_to_roles(userId, roleId)
 values (1, 1),
-       (2, 1),
-       (3, 1);
+       (2, 2),
+       (3, 3);
 
 insert into permissions(id, name)
-values (1, 'ORDER_FOOD');
+values (1, 'ORDER_FOOD'),
+       (2, 'USERS_LIST_VIEW'),
+       (3, 'USERS_DETAILS_VIEW'),
+       (4, 'USERS_EDIT'),
+       (5, 'USERS_DELETE'),
+       (6, 'RESTAURANT_LIST_VIEW'),
+       (7, 'RESTAURANT_DETAILS_VIEW'),
+       (8, 'RESTAURANT_EDIT'),
+       (9, 'RESTAURANT_DELETE');
 
 insert into role_to_permissions(roleId, permissionId)
 values (1, 1),
-       (2, 1);
+       (1, 6),
+       (2, 2),
+       (2, 3),
+       (2, 6),
+       (2, 7),
+       (2, 8),
+       (3, 1),
+       (3, 2),
+       (3, 3),
+       (3, 4),
+       (3, 5),
+       (3, 6),
+       (3, 7),
+       (3, 8),
+       (3, 9);
 
 insert into delivery(id, isDone, userId, restaurantId, addressId, date, comment)
 values (1, TRUE , 2, 1, 1, '2021-12-2', 'Hurry up I am hungry'),

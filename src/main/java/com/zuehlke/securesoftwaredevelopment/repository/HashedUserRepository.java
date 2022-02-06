@@ -1,5 +1,6 @@
 package com.zuehlke.securesoftwaredevelopment.repository;
 
+import com.zuehlke.securesoftwaredevelopment.config.AuditLogger;
 import com.zuehlke.securesoftwaredevelopment.domain.HashedUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,7 @@ import java.sql.*;
 public class HashedUserRepository {
 
     private static final Logger LOG = LoggerFactory.getLogger(HashedUserRepository.class);
-
+    private static final AuditLogger auditLogger = AuditLogger.getAuditLogger(HashedUserRepository.class);
 
     private final DataSource dataSource;
 
@@ -21,10 +22,12 @@ public class HashedUserRepository {
     }
 
     public HashedUser findUser(String username) {
-        String sqlQuery = "select passwordHash, salt, totpKey from hashedUsers where username = '" + username + "'";
+        String sqlQuery = "select passwordHash, salt, totpKey from hashedUsers where username = ?";
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sqlQuery)) {
+             PreparedStatement statement = connection.prepareStatement(sqlQuery)) {
+
+            statement.setString(1, username);
+            ResultSet rs = statement.executeQuery();
             if (rs.next()) {
                 String passwordHash = rs.getString(1);
                 String salt = rs.getString(2);
@@ -32,7 +35,7 @@ public class HashedUserRepository {
                 return new HashedUser(username, passwordHash, salt, totpKey);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in HashedUserRepository.java - findUser(String username)", e.getMessage());
         }
         return null;
     }
@@ -45,8 +48,9 @@ public class HashedUserRepository {
             statement.setString(2, username);
 
             statement.executeUpdate();
+            auditLogger.audit("TotpKey update username = " + username);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.warn("SQLException in HashedUserRepository.java - saveTotpKey(String username, String totpKey)", e.getMessage());
         }
     }
 }
